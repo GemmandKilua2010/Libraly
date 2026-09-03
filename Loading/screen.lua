@@ -4,7 +4,7 @@ local TweenService = game:GetService("TweenService")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local SOUND_ID = "rbxassetid://0000000000"
+local SOUND_ID = "rbxassetid://1836406945"
 local START_SOUND_ID = ""
 local FINISH_SOUND_ID = ""
 
