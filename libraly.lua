@@ -3350,11 +3350,8 @@ function redzlib:MakeWindow(Configs)
 				local Scale = UIScale or 1
 				local ScreenSize = ScreenGui.AbsoluteSize
 		
-				-- Anchor to the full row (Button), not just the compact hex/preview
-				-- control, so the expanded panel spans the whole tab width like the
-				-- reference design instead of a small floating box.
-				local FramePosition = Button.AbsolutePosition
-				local FrameSize = Button.AbsoluteSize
+				local FramePosition = SelectedFrame.AbsolutePosition
+				local FrameSize = SelectedFrame.AbsoluteSize
 		
 				local ScreenWidth = ScreenSize.X / Scale
 				local ScreenHeight = ScreenSize.Y / Scale
@@ -3363,8 +3360,8 @@ function redzlib:MakeWindow(Configs)
 		
 				PickerWidth = math.clamp(
 					PickerWidth,
-					245,
-					math.max(245, ScreenWidth - 30)
+					300,
+					math.max(300, ScreenWidth - 30)
 				)
 		
 				PickerFrame.Size = UDim2.fromOffset(
@@ -3537,13 +3534,13 @@ function redzlib:MakeWindow(Configs)
 				end
 			end))
 		
-			Connect(Button:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+			Connect(SelectedFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
 				if IsOpen then
 					CalculatePosition()
 				end
 			end))
 		
-			Connect(Button:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			Connect(SelectedFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 				if IsOpen then
 					CalculatePosition()
 				end
