@@ -3034,6 +3034,10 @@ function redzlib:MakeWindow(Configs)
 				UpdateIndicators()
 			end
 		
+			-- AddRecent controls whether this change should be pushed into the
+			-- "Recentes" history. Only explicit, committed picks (clicking a swatch,
+			-- or finishing an edit of the hex field) should touch that list — live
+			-- drags and typing feedback should not spam it.
 			local function ApplyColor(Color, Fire, AddRecent)
 				if Destroyed or typeof(Color) ~= "Color3" then
 					return
@@ -3230,6 +3234,9 @@ function redzlib:MakeWindow(Configs)
 				local Color = HexToColor3(Text)
 		
 				if Color then
+					-- Committing an edit (losing focus / pressing enter) is the
+					-- point where the color is considered "picked", so it earns a
+					-- spot in Recentes.
 					ApplyColor(Color, true, true)
 				else
 					RestoreHex()
@@ -3252,6 +3259,9 @@ function redzlib:MakeWindow(Configs)
 				local Text = NormalizeHex(RawText)
 		
 				if RawText ~= Text then
+					-- Preserve the caret position (adjusted for any characters
+					-- added/removed by normalization) so editing in the middle of
+					-- the hex value doesn't get kicked to the end of the field.
 					local OldCursor = HexInput.CursorPosition
 					local Delta = #Text - #RawText
 		
@@ -3265,6 +3275,8 @@ function redzlib:MakeWindow(Configs)
 				local Color = HexToColor3(Text)
 		
 				if Color then
+					-- Live feedback while typing: update color/preview/callback,
+					-- but don't touch Recentes on every keystroke.
 					ApplyColor(Color, true, false)
 				end
 			end))
@@ -3338,8 +3350,11 @@ function redzlib:MakeWindow(Configs)
 				local Scale = UIScale or 1
 				local ScreenSize = ScreenGui.AbsoluteSize
 		
-				local FramePosition = SelectedFrame.AbsolutePosition
-				local FrameSize = SelectedFrame.AbsoluteSize
+				-- Anchor to the full row (Button), not just the compact hex/preview
+				-- control, so the expanded panel spans the whole tab width like the
+				-- reference design instead of a small floating box.
+				local FramePosition = Button.AbsolutePosition
+				local FrameSize = Button.AbsoluteSize
 		
 				local ScreenWidth = ScreenSize.X / Scale
 				local ScreenHeight = ScreenSize.Y / Scale
@@ -3348,8 +3363,8 @@ function redzlib:MakeWindow(Configs)
 		
 				PickerWidth = math.clamp(
 					PickerWidth,
-					300,
-					math.max(300, ScreenWidth - 30)
+					245,
+					math.max(245, ScreenWidth - 30)
 				)
 		
 				PickerFrame.Size = UDim2.fromOffset(
@@ -3492,6 +3507,11 @@ function redzlib:MakeWindow(Configs)
 				end
 			end
 		
+			-- Single source of truth for opening/closing: everything to the right
+			-- of the hex field (gap + preview square + gap + arrow) toggles the
+			-- picker. This avoids the old bug where PreviewButton.Activated and
+			-- Arrow.InputBegan could both fire alongside SelectedFrame.InputBegan
+			-- for the same click, toggling the panel open then immediately closed.
 			Connect(SelectedFrame.InputBegan:Connect(function(Input)
 				if Input.UserInputType ~= Enum.UserInputType.MouseButton1
 					and Input.UserInputType ~= Enum.UserInputType.Touch then
@@ -3517,13 +3537,13 @@ function redzlib:MakeWindow(Configs)
 				end
 			end))
 		
-			Connect(SelectedFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+			Connect(Button:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
 				if IsOpen then
 					CalculatePosition()
 				end
 			end))
 		
-			Connect(SelectedFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			Connect(Button:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 				if IsOpen then
 					CalculatePosition()
 				end
@@ -3601,6 +3621,8 @@ function redzlib:MakeWindow(Configs)
 				end
 		
 				if typeof(ValueToSet) == "Color3" then
+					-- Set() is meant for programmatic/config restoration, so it
+					-- does not push into Recentes (only user-driven picks do).
 					ApplyColor(
 						ValueToSet,
 						true,
