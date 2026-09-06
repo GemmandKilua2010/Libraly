@@ -3248,16 +3248,24 @@ function redzlib:MakeWindow(Configs)
 					return
 				end
 		
-				local Text = NormalizeHex(HexInput.Text)
+				local RawText = HexInput.Text
+				local Text = NormalizeHex(RawText)
 		
-				if HexInput.Text ~= Text then
+				if RawText ~= Text then
+					local OldCursor = HexInput.CursorPosition
+					local Delta = #Text - #RawText
+		
 					HexInput.Text = Text
+		
+					if OldCursor and OldCursor > 0 then
+						HexInput.CursorPosition = math.clamp(OldCursor + Delta, 1, #Text + 1)
+					end
 				end
 		
 				local Color = HexToColor3(Text)
 		
 				if Color then
-					ApplyColor(Color, true, true)
+					ApplyColor(Color, true, false)
 				end
 			end))
 		
@@ -3484,34 +3492,15 @@ function redzlib:MakeWindow(Configs)
 				end
 			end
 		
-			Connect(PreviewButton.Activated:Connect(Toggle))
-		
-			Connect(Arrow.InputBegan:Connect(function(Input)
-				if Input.UserInputType == Enum.UserInputType.MouseButton1
-					or Input.UserInputType == Enum.UserInputType.Touch then
-		
-					Toggle()
-				end
-			end))
-		
 			Connect(SelectedFrame.InputBegan:Connect(function(Input)
 				if Input.UserInputType ~= Enum.UserInputType.MouseButton1
 					and Input.UserInputType ~= Enum.UserInputType.Touch then
 					return
 				end
 		
-				local Position = Input.Position
+				local HexRightEdge = HexInput.AbsolutePosition.X + HexInput.AbsoluteSize.X
 		
-				local PreviewPosition = PreviewButton.AbsolutePosition
-				local PreviewSize = PreviewButton.AbsoluteSize
-		
-				local InPreview =
-					Position.X >= PreviewPosition.X
-					and Position.X <= PreviewPosition.X + PreviewSize.X
-					and Position.Y >= PreviewPosition.Y
-					and Position.Y <= PreviewPosition.Y + PreviewSize.Y
-		
-				if InPreview then
+				if Input.Position.X >= HexRightEdge then
 					Toggle()
 				end
 			end))
@@ -3615,7 +3604,7 @@ function redzlib:MakeWindow(Configs)
 					ApplyColor(
 						ValueToSet,
 						true,
-						true
+						false
 					)
 		
 					return
@@ -3634,7 +3623,7 @@ function redzlib:MakeWindow(Configs)
 						ApplyColor(
 							Color,
 							true,
-							true
+							false
 						)
 					end
 		
@@ -3664,6 +3653,18 @@ function redzlib:MakeWindow(Configs)
 		
 			function ColorPicker:GetHex()
 				return Color3ToHex(CurrentColor)
+			end
+		
+			function ColorPicker:GetHSV()
+				return Hue, Saturation, Value
+			end
+		
+			function ColorPicker:SetHSV(NewHue, NewSaturation, NewValue)
+				if Destroyed then
+					return
+				end
+		
+				ApplyHSV(NewHue, NewSaturation, NewValue, true)
 			end
 		
 			function ColorPicker:Open()
