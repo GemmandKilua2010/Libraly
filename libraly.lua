@@ -2768,7 +2768,7 @@ function redzlib:MakeWindow(Configs)
 				Size = UDim2.fromOffset(15, 15),
 				Position = UDim2.new(1, -8, 0.5, 0),
 				AnchorPoint = Vector2.new(1, 0.5),
-				Image = "rbxassetid://10709791523",
+				Image = "rbxassetid://10709790948",
 				ImageColor3 = Color3.fromRGB(255, 255, 255),
 				BackgroundTransparency = 1,
 				ZIndex = 5
@@ -3429,7 +3429,7 @@ function redzlib:MakeWindow(Configs)
 					0
 				)
 		
-				Arrow.Image = "rbxassetid://10709790948"
+				Arrow.Image = "rbxassetid://10709791523"
 		
 				CreateTween({
 					Arrow,
@@ -3463,7 +3463,7 @@ function redzlib:MakeWindow(Configs)
 		
 				Container.ScrollingEnabled = true
 		
-				Arrow.Image = "rbxassetid://10709791523"
+				Arrow.Image = "rbxassetid://10709790948"
 		
 				CreateTween({
 					Arrow,
