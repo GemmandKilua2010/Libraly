@@ -3000,12 +3000,12 @@ function redzlib:MakeWindow(Configs)
 
 			local PickerFrame = Create("Frame", Container, {
 				Size = UDim2.new(1, 0, 0, 0),
-				BackgroundColor3 = Button.BackgroundColor3,
+				BackgroundColor3 = Theme["Color Hub 2"],
 				ClipsDescendants = true,
 				Name = "Option"
 			})
 
-			InsertTheme(PickerFrame, "Stroke")
+			InsertTheme(PickerFrame, "Hub 2")
 			Make("Corner", PickerFrame, UDim.new(0, 6))
 
 			local PickerContent = Create("Frame", PickerFrame, {
