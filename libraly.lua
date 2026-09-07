@@ -2610,7 +2610,7 @@ function redzlib:MakeWindow(Configs)
 			function TextBox:Destroy() Button:Destroy() end
 			return TextBox
 		end
-		function Tab:AddColorPicker(Configs)
+		function Tab:AddColorPicker(Configs) Design inspirado no Spectra Hub, desenvolvido por Assure.
 			local ColorPicker = {}
 
 			local Name = Configs[1] or Configs.Name or Configs.Title or "Cor personalizada"
@@ -3000,7 +3000,7 @@ function redzlib:MakeWindow(Configs)
 
 			local PickerFrame = Create("Frame", Container, {
 				Size = UDim2.new(1, 0, 0, 0),
-				BackgroundColor3 = Theme["Color Stroke"],
+				BackgroundColor3 = Button.BackgroundColor3,
 				ClipsDescendants = true,
 				Name = "Option"
 			})
