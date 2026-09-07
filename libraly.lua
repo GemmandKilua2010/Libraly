@@ -3190,15 +3190,12 @@ function redzlib:MakeWindow(Configs)
 				RefreshRecent()
 			end
 
-			local function UpdateIndicators()
-				local Padding = 4
-				local HueX = math.clamp(HueBackground.AbsoluteSize.X * Hue, Padding, HueBackground.AbsoluteSize.X - Padding)
-				local SatX = math.clamp(SaturationBackground.AbsoluteSize.X * Saturation, Padding, SaturationBackground.AbsoluteSize.X - Padding)
-				local BrightX = math.clamp(BrightnessBackground.AbsoluteSize.X * Brightness, Padding, BrightnessBackground.AbsoluteSize.X - Padding)
+			local SliderPadding = 5
 
-				HueIndicator.Position = UDim2.fromOffset(HueX, HueBackground.AbsoluteSize.Y / 2)
-				SaturationIndicator.Position = UDim2.fromOffset(SatX, SaturationBackground.AbsoluteSize.Y / 2)
-				BrightnessIndicator.Position = UDim2.fromOffset(BrightX, BrightnessBackground.AbsoluteSize.Y / 2)
+			local function UpdateIndicators()
+				HueIndicator.Position = UDim2.new(Hue, 0, 0.5, 0)
+				SaturationIndicator.Position = UDim2.new(Saturation, 0, 0.5, 0)
+				BrightnessIndicator.Position = UDim2.new(Brightness, 0, 0.5, 0)
 			end
 
 			local function UpdateGradients()
@@ -3220,8 +3217,8 @@ function redzlib:MakeWindow(Configs)
 
 				Hue, Saturation, Brightness = Color:ToHSV()
 
-				if Color == Color3.new(0, 0, 0) then
-					Saturation = Saturation > 0 and Saturation or 1
+				if Saturation == 0 then
+					Saturation = 1
 				end
 
 				ColorPreview.BackgroundColor3 = Color
@@ -3305,7 +3302,7 @@ function redzlib:MakeWindow(Configs)
 				CreateTween({
 					PickerFrame,
 					"Size",
-					UDim2.new(1, 0, 0, Expanded and 175 or 0),
+					UDim2.new(1, 0, 0, Expanded and 225 or 0),
 					0.25
 				})
 			end
@@ -3315,11 +3312,12 @@ function redzlib:MakeWindow(Configs)
 			end)
 
 			local function GetSliderValue(Input, Background)
-				local Padding = 4
 				local Width = Background.AbsoluteSize.X
 				local X = Input.Position.X - Background.AbsolutePosition.X
+				local Range = math.max(Width - SliderPadding * 2, 1)
+
 				return math.clamp(
-					(X - Padding) / math.max(Width - Padding * 2, 1),
+					(X - SliderPadding) / Range,
 					0,
 					1
 				)
@@ -3482,6 +3480,7 @@ function redzlib:MakeWindow(Configs)
 					local Text = RGBInput.Text:gsub("[^%d,]", "")
 
 					local Parts = {}
+
 					for Part in Text:gmatch("%d+") do
 						if #Parts < 3 then
 							table.insert(Parts, Part:sub(1, 3))
