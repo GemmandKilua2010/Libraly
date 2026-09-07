@@ -2681,7 +2681,7 @@ function redzlib:MakeWindow(Configs)
 			-- Frame principal
 			local Button, LabelFunc = ButtonFrame(Container, CName, CDesc, UDim2.new(1, -140))
 
-			-- Holder do lado direito
+			-- Holder direito
 			local RightHolder = Create("Frame", Button, {
 				Size = UDim2.new(0, 125, 0, 18),
 				Position = UDim2.new(1, -10, 0.5),
@@ -2710,7 +2710,7 @@ function redzlib:MakeWindow(Configs)
 				Text = Color3ToHex(CurrentColor)
 			}), "Text")
 
-			-- Preview da cor (botão vermelho)
+			-- Preview (quadrado de cor)
 			local ColorPreview = Create("TextButton", RightHolder, {
 				Size = UDim2.new(0, 18, 0, 18),
 				Position = UDim2.new(0, 78, 0.5),
@@ -2731,7 +2731,7 @@ function redzlib:MakeWindow(Configs)
 				BackgroundTransparency = 1
 			})
 
-			-- Anti-click + Painel
+			-- AntiClick + Painel (igual Dropdown)
 			local NoClickFrame = Create("TextButton", DropdownHolder, {
 				Name = "AntiClick",
 				Size = UDim2.new(1, 0, 1, 0),
@@ -2842,7 +2842,7 @@ function redzlib:MakeWindow(Configs)
 			end
 			RefreshRecents()
 
-			-- Criador de sliders HSV
+			-- Sliders HSV
 			local function CreateHSVSlider(name, order, isHue)
 				local holder = Create("Frame", PanelContent, {
 					Size = UDim2.new(1, 0, 0, 34),
@@ -2992,7 +2992,7 @@ function redzlib:MakeWindow(Configs)
 				UpdateAll(fire ~= false)
 			end
 
-			-- HEX: impede apagar o # e espaços
+			-- Proteção do HEX (não apaga # e não permite espaços)
 			local function ProtectHex(box)
 				box:GetPropertyChangedSignal("Text"):Connect(function()
 					local text = box.Text:upper():gsub("%s+", "")
@@ -3020,7 +3020,7 @@ function redzlib:MakeWindow(Configs)
 			HexBox.FocusLost:Connect(function() ApplyHex(HexBox) end)
 			PanelHexBox.FocusLost:Connect(function() ApplyHex(PanelHexBox) end)
 
-			-- Abrir / Fechar
+			-- Abrir / Fechar (igual Dropdown)
 			local function Disable()
 				if WaitClick then return end
 				WaitClick = true
