@@ -3022,7 +3022,7 @@ function redzlib:MakeWindow(Configs)
 					PaddingLeft = UDim.new(0, 12),
 					PaddingRight = UDim.new(0, 12),
 					PaddingTop = UDim.new(0, 12),
-					PaddingBottom = UDim.new(0, 28)
+					PaddingBottom = UDim.new(0, 12)
 				})
 			})
 
@@ -3312,22 +3312,10 @@ function redzlib:MakeWindow(Configs)
 			local PickerPadding = PickerContent:FindFirstChildOfClass("UIPadding")
 
 			local function GetPickerHeight()
-				local Height = PickerContent.AbsoluteSize.Y
-
-				if PickerLayout then
-					Height = math.max(
-						Height,
-						PickerLayout.AbsoluteContentSize.Y
-					)
-
-					if PickerPadding then
-						Height +=
-							PickerPadding.PaddingTop.Offset +
-							PickerPadding.PaddingBottom.Offset
-					end
-				end
-
-				return Height + 12
+				return PickerLayout and PickerLayout.AbsoluteContentSize.Y
+					+ PickerPadding.PaddingTop.Offset
+					+ PickerPadding.PaddingBottom.Offset
+					or PickerContent.AbsoluteSize.Y
 			end
 
 			local function SetExpanded(Value)
