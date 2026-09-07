@@ -3044,6 +3044,8 @@ function redzlib:MakeWindow(Configs)
 					CreateTween({Arrow, "Rotation", 180, 0.2})
 					CreateTween({Arrow, "ImageColor3", Theme["Color Theme"], 0.2})
 
+					print("Test")
+
 					local absPos = ColorPreview.AbsolutePosition
 					local absSize = ColorPreview.AbsoluteSize
 					local screenSize = ScreenGui.AbsoluteSize
