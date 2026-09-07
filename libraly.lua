@@ -3312,7 +3312,7 @@ function redzlib:MakeWindow(Configs)
 			local PickerPadding = PickerContent:FindFirstChildOfClass("UIPadding")
 
 			local function GetPickerHeight()
-				return PickerContent.AbsoluteSize.Y
+				return PickerContent.AbsoluteSize.Y + 6
 			end
 
 			local function SetExpanded(Value)
@@ -3333,7 +3333,7 @@ function redzlib:MakeWindow(Configs)
 					PickerFrame,
 					"Size",
 					Expanded
-						and UDim2.new(1, 0, 0, 393)
+						and UDim2.new(1, 0, 0, GetPickerHeight())
 						or UDim2.new(1, 0, 0, 0),
 					0.25
 				})
