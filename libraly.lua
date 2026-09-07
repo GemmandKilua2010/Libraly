@@ -3333,7 +3333,7 @@ function redzlib:MakeWindow(Configs)
 					PickerFrame,
 					"Size",
 					Expanded
-						and UDim2.new(1, 0, 0, GetPickerHeight())
+						and UDim2.new(1, 0, 0, 393)
 						or UDim2.new(1, 0, 0, 0),
 					0.25
 				})
