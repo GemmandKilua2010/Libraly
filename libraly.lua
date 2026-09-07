@@ -3329,14 +3329,25 @@ function redzlib:MakeWindow(Configs)
 					0.25
 				})
 
-				CreateTween({
-					PickerFrame,
-					"Size",
-					Expanded
-						and UDim2.new(1, 0, 0, GetPickerHeight())
-						or UDim2.new(1, 0, 0, 0),
-					0.25
-				})
+				if Expanded then
+					task.defer(function()
+						local Height = GetPickerHeight()
+
+						CreateTween({
+							PickerFrame,
+							"Size",
+							UDim2.new(1, 0, 0, Height),
+							0.25
+						})
+					end)
+				else
+					CreateTween({
+						PickerFrame,
+						"Size",
+						UDim2.new(1, 0, 0, 0),
+						0.25
+					})
+				end
 			end
 
 			PreviewButton.Activated:Connect(function()
