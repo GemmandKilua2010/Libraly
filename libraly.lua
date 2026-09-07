@@ -2610,499 +2610,890 @@ function redzlib:MakeWindow(Configs)
 			function TextBox:Destroy() Button:Destroy() end
 			return TextBox
 		end
-		function Tab:AddColor(Configs)
+		function Tab:AddColor(...Configs)
 			local CName = Configs[1] or Configs.Name or Configs.Title or "Color"
 			local CDesc = Configs.Desc or Configs.Description or ""
+
 			local Callback = Funcs:GetCallback(Configs, 3)
 			local Flag = Configs[4] or Configs.Flag or false
 			local Default = Configs[2] or Configs.Default or Color3.fromRGB(255, 0, 0)
 
-			-- Conversões
-			local function Color3ToHex(c)
-				return string.format("#%02X%02X%02X",
-					math.floor(c.R * 255 + 0.5),
-					math.floor(c.G * 255 + 0.5),
-					math.floor(c.B * 255 + 0.5)
+			--//========================================================
+			--// Config
+			--//========================================================
+
+			local PresetColors = Configs.Colors or Configs.Presets or {
+				Color3.fromRGB(108, 99, 255),
+				Color3.fromRGB(33, 150, 243),
+				Color3.fromRGB(67, 181, 129),
+				Color3.fromRGB(255, 193, 7),
+				Color3.fromRGB(255, 107, 107),
+				Color3.fromRGB(233, 30, 140),
+				Color3.fromRGB(156, 106, 222),
+				Color3.fromRGB(0, 0, 0)
+			}
+
+			local MaxRecents = Configs.MaxRecents or 8
+
+			--//========================================================
+			--// Conversões
+			--//========================================================
+
+			local function Color3ToHex(Color)
+				return string.format(
+					"#%02X%02X%02X",
+					math.floor(Color.R * 255 + 0.5),
+					math.floor(Color.G * 255 + 0.5),
+					math.floor(Color.B * 255 + 0.5)
 				)
 			end
 
-			local function HexToColor3(hex)
-				if type(hex) ~= "string" then return nil end
-				hex = hex:gsub("#", ""):upper():gsub("%s+", "")
-				if #hex ~= 6 or not hex:match("^[0-9A-F]+$") then return nil end
+			local function HexToColor3(Hex)
+				if type(Hex) ~= "string" then
+					return nil
+				end
+
+				Hex = Hex:gsub("%s+", "")
+				Hex = Hex:gsub("^#", "")
+				Hex = Hex:upper()
+
+				--// RGB curto: #FFF
+				if #Hex == 3 and Hex:match("^[0-9A-F]+$") then
+					Hex =
+						Hex:sub(1, 1) .. Hex:sub(1, 1) ..
+						Hex:sub(2, 2) .. Hex:sub(2, 2) ..
+						Hex:sub(3, 3) .. Hex:sub(3, 3)
+				end
+
+				if #Hex ~= 6 or not Hex:match("^[0-9A-F]+$") then
+					return nil
+				end
+
 				return Color3.fromRGB(
-					tonumber(hex:sub(1, 2), 16),
-					tonumber(hex:sub(3, 4), 16),
-					tonumber(hex:sub(5, 6), 16)
+					tonumber(Hex:sub(1, 2), 16),
+					tonumber(Hex:sub(3, 4), 16),
+					tonumber(Hex:sub(5, 6), 16)
 				)
 			end
 
-			local function ParseDefault(val)
-				if typeof(val) == "Color3" then return val end
-				if type(val) == "string" then return HexToColor3(val) or Color3.fromRGB(255, 0, 0) end
-				if type(val) == "table" and #val >= 3 then
-					return Color3.fromRGB(val[1] or 255, val[2] or 0, val[3] or 0)
+			local function ParseColor(Value)
+				if typeof(Value) == "Color3" then
+					return Value
 				end
-				return Color3.fromRGB(255, 0, 0)
+
+				if type(Value) == "string" then
+					return HexToColor3(Value)
+				end
+
+				if type(Value) == "table" then
+					if Value.R and Value.G and Value.B then
+						return Color3.new(
+							Value.R,
+							Value.G,
+							Value.B
+						)
+					end
+
+					if #Value >= 3 then
+						return Color3.fromRGB(
+							Value[1] or 255,
+							Value[2] or 0,
+							Value[3] or 0
+						)
+					end
+				end
+
+				return nil
 			end
 
-			Default = ParseDefault(Default)
-			if CheckFlag(Flag) then
-				local saved = GetFlag(Flag)
-				if typeof(saved) == "Color3" then
-					Default = saved
-				elseif type(saved) == "string" then
-					Default = HexToColor3(saved) or Default
-				elseif type(saved) == "table" and saved.R then
-					Default = Color3.new(saved.R, saved.G, saved.B)
+			Default = ParseColor(Default) or Color3.fromRGB(255, 0, 0)
+
+			--// Flag
+			if Flag and CheckFlag(Flag) then
+				local Saved = GetFlag(Flag)
+				local Parsed = ParseColor(Saved)
+
+				if Parsed then
+					Default = Parsed
 				end
 			end
+
+			--//========================================================
+			--// Estado
+			--//========================================================
 
 			local CurrentColor = Default
 			local h, s, v = CurrentColor:ToHSV()
-			local Open = false
-			local RecentColors = {CurrentColor}
-			local MaxRecents = 8
-			local WaitClick = false
 
-			local function AddRecent(c)
-				local hex = Color3ToHex(c)
+			local Open = false
+			local Destroyed = false
+			local Busy = false
+
+			local RecentColors = {}
+
+			local function SameColor(A, B)
+				return Color3ToHex(A) == Color3ToHex(B)
+			end
+
+			local function AddRecent(Color)
 				for i = #RecentColors, 1, -1 do
-					if Color3ToHex(RecentColors[i]) == hex then
+					if SameColor(RecentColors[i], Color) then
 						table.remove(RecentColors, i)
 					end
 				end
-				table.insert(RecentColors, 1, c)
+
+				table.insert(RecentColors, 1, Color)
+
 				while #RecentColors > MaxRecents do
 					table.remove(RecentColors)
 				end
 			end
 
-			-- Frame principal
-			local Button, LabelFunc = ButtonFrame(Container, CName, CDesc, UDim2.new(1, -140))
+			AddRecent(CurrentColor)
 
-			-- Holder direito
+			--//========================================================
+			--// Item principal
+			--//========================================================
+
+			local Button, LabelFunc = ButtonFrame(
+				Container,
+				CName,
+				CDesc,
+				UDim2.new(1, -140)
+			)
+
+			Button.Name = "ColorOption"
+
+			--//========================================================
+			--// Área direita
+			--//========================================================
+
 			local RightHolder = Create("Frame", Button, {
-				Size = UDim2.new(0, 125, 0, 18),
-				Position = UDim2.new(1, -10, 0.5),
+				Size = UDim2.new(0, 116, 0, 22),
+				Position = UDim2.new(1, -10, 0.5, 0),
 				AnchorPoint = Vector2.new(1, 0.5),
 				BackgroundTransparency = 1
 			})
 
-			-- Campo HEX (estilo TextBox)
+			Create("UIListLayout", RightHolder, {
+				FillDirection = Enum.FillDirection.Horizontal,
+				HorizontalAlignment = Enum.HorizontalAlignment.Right,
+				VerticalAlignment = Enum.VerticalAlignment.Center,
+				Padding = UDim.new(0, 6)
+			})
+
+			--//========================================================
+			--// HEX
+			--//========================================================
+
 			local HexFrame = InsertTheme(Create("Frame", RightHolder, {
-				Size = UDim2.new(0, 72, 0, 18),
-				Position = UDim2.new(0, 0, 0.5),
-				AnchorPoint = Vector2.new(0, 0.5),
-				BackgroundColor3 = Theme["Color Stroke"]
-			}), "Stroke")
-			Make("Corner", HexFrame, UDim.new(0, 4))
+				Size = UDim2.new(0, 70, 0, 20),
+				BackgroundColor3 = Theme["Color Hub 2"]
+			}), "Frame")
+
+			Make("Corner", HexFrame, UDim.new(0, 5))
+			Make("Stroke", HexFrame)
 
 			local HexBox = InsertTheme(Create("TextBox", HexFrame, {
-				Size = UDim2.new(1, -6, 0.85, 0),
+				Size = UDim2.new(1, -8, 1, 0),
+				Position = UDim2.new(0.5, 0, 0.5, 0),
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0.5, 0, 0.5),
+
 				BackgroundTransparency = 1,
+
 				Font = Enum.Font.GothamBold,
-				TextScaled = true,
-				TextColor3 = Theme["Color Text"],
+				TextSize = 10,
+
+				TextColor3 = CurrentColor,
+
+				Text = Color3ToHex(CurrentColor),
+
 				ClearTextOnFocus = false,
-				Text = Color3ToHex(CurrentColor)
+				TextXAlignment = Enum.TextXAlignment.Center
 			}), "Text")
 
-			-- Preview (quadrado de cor)
+			--//========================================================
+			--// Preview
+			--//========================================================
+
 			local ColorPreview = Create("TextButton", RightHolder, {
-				Size = UDim2.new(0, 18, 0, 18),
-				Position = UDim2.new(0, 78, 0.5),
-				AnchorPoint = Vector2.new(0, 0.5),
+				Size = UDim2.new(0, 20, 0, 20),
+
 				BackgroundColor3 = CurrentColor,
-				Text = "",
-				AutoButtonColor = false
-			})
-			Make("Corner", ColorPreview, UDim.new(0, 4))
-			Make("Stroke", ColorPreview)
 
-			-- Seta (igual Dropdown)
-			local Arrow = Create("ImageLabel", RightHolder, {
-				Size = UDim2.new(0, 15, 0, 15),
-				Position = UDim2.new(1, 0, 0.5),
-				AnchorPoint = Vector2.new(1, 0.5),
-				Image = "rbxassetid://10709791523",
-				BackgroundTransparency = 1
-			})
-
-			-- AntiClick + Painel (igual Dropdown)
-			local NoClickFrame = Create("TextButton", DropdownHolder, {
-				Name = "AntiClick",
-				Size = UDim2.new(1, 0, 1, 0),
-				BackgroundTransparency = 1,
-				Visible = false,
+				AutoButtonColor = false,
 				Text = ""
 			})
 
-			local ColorPanel = InsertTheme(Create("Frame", NoClickFrame, {
-				Size = UDim2.new(0, 220, 0, 0),
-				BackgroundColor3 = Theme["Color Hub 2"],
+			Make("Corner", ColorPreview, UDim.new(0, 5))
+			Make("Stroke", ColorPreview)
+
+			--//========================================================
+			--// Seta
+			--//========================================================
+
+			local Arrow = Create("ImageLabel", RightHolder, {
+				Size = UDim2.new(0, 14, 0, 14),
+
+				BackgroundTransparency = 1,
+
+				Image = "rbxassetid://10709791523",
+
+				ImageColor3 = Theme["Color Text"]
+			})
+
+			--//========================================================
+			--// Painel
+			--//========================================================
+
+			local ColorPanel = InsertTheme(Create("Frame", DropdownHolder, {
+				Name = "ColorPicker",
+
+				Size = UDim2.new(0, 240, 0, 0),
+
+				BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+
 				ClipsDescendants = true,
-				Active = true,
-				Name = "ColorPanel"
+
+				Visible = false,
+
+				Active = true
 			}), "Frame")
-			Make("Corner", ColorPanel, UDim.new(0, 8))
+
+			Make("Corner", ColorPanel, UDim.new(0, 6))
 			Make("Stroke", ColorPanel)
+
+			--//========================================================
+			--// Conteúdo
+			--//========================================================
 
 			local PanelContent = Create("Frame", ColorPanel, {
 				Size = UDim2.new(1, 0, 1, 0),
+
 				BackgroundTransparency = 1
-			}, {
-				Create("UIPadding", {
-					PaddingTop = UDim.new(0, 10),
-					PaddingBottom = UDim.new(0, 10),
-					PaddingLeft = UDim.new(0, 12),
-					PaddingRight = UDim.new(0, 12)
-				}),
-				Create("UIListLayout", {
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 8)
-				})
 			})
 
-			-- HEX no painel
-			InsertTheme(Create("TextLabel", PanelContent, {
+			Create("UIPadding", PanelContent, {
+				PaddingTop = UDim.new(0, 12),
+				PaddingBottom = UDim.new(0, 12),
+				PaddingLeft = UDim.new(0, 12),
+				PaddingRight = UDim.new(0, 12)
+			})
+
+			local Layout = Create("UIListLayout", PanelContent, {
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 9)
+			})
+
+			--//========================================================
+			--// Título
+			--//========================================================
+
+			local RecentTitle = InsertTheme(Create("TextLabel", PanelContent, {
 				Size = UDim2.new(1, 0, 0, 14),
+
 				BackgroundTransparency = 1,
-				Font = Enum.Font.GothamBold,
-				TextSize = 11,
-				TextColor3 = Theme["Color Text"],
-				TextXAlignment = "Left",
-				Text = "HEX",
+
+				Font = Enum.Font.GothamMedium,
+				TextSize = 10,
+
+				TextColor3 = Color3.fromRGB(145, 145, 145),
+
+				TextXAlignment = Enum.TextXAlignment.Left,
+
+				Text = "Recentes",
+
 				LayoutOrder = 1
 			}), "Text")
 
-			local PanelHexFrame = InsertTheme(Create("Frame", PanelContent, {
-				Size = UDim2.new(1, 0, 0, 22),
-				BackgroundColor3 = Theme["Color Stroke"],
-				LayoutOrder = 2
-			}), "Stroke")
-			Make("Corner", PanelHexFrame, UDim.new(0, 4))
-
-			local PanelHexBox = InsertTheme(Create("TextBox", PanelHexFrame, {
-				Size = UDim2.new(1, -10, 0.85, 0),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0.5, 0, 0.5),
-				BackgroundTransparency = 1,
-				Font = Enum.Font.GothamBold,
-				TextScaled = true,
-				TextColor3 = Theme["Color Text"],
-				ClearTextOnFocus = false,
-				Text = Color3ToHex(CurrentColor)
-			}), "Text")
-
-			-- Recentes
-			InsertTheme(Create("TextLabel", PanelContent, {
-				Size = UDim2.new(1, 0, 0, 14),
-				BackgroundTransparency = 1,
-				Font = Enum.Font.GothamBold,
-				TextSize = 11,
-				TextColor3 = Theme["Color Text"],
-				TextXAlignment = "Left",
-				Text = "Recentes",
-				LayoutOrder = 3
-			}), "Text")
+			--//========================================================
+			--// Recentes
+			--//========================================================
 
 			local RecentHolder = Create("Frame", PanelContent, {
-				Size = UDim2.new(1, 0, 0, 26),
+				Size = UDim2.new(1, 0, 0, 24),
+
 				BackgroundTransparency = 1,
-				LayoutOrder = 4
-			}, {
-				Create("UIListLayout", {
-					FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0, 6),
-					VerticalAlignment = Enum.VerticalAlignment.Center
-				})
+
+				LayoutOrder = 2
 			})
 
+			Create("UIListLayout", RecentHolder, {
+				FillDirection = Enum.FillDirection.Horizontal,
+
+				VerticalAlignment = Enum.VerticalAlignment.Center,
+
+				Padding = UDim.new(0, 6)
+			})
+
+			--//========================================================
+			--// Atualização dos recentes
+			--//========================================================
+
+			local SetColor
+
 			local function RefreshRecents()
-				for _, child in ipairs(RecentHolder:GetChildren()) do
-					if child:IsA("TextButton") then child:Destroy() end
+				for _, Child in ipairs(RecentHolder:GetChildren()) do
+					if Child:IsA("TextButton") then
+						Child:Destroy()
+					end
 				end
-				for i, c in ipairs(RecentColors) do
-					local btn = Create("TextButton", RecentHolder, {
-						Size = UDim2.new(0, 24, 0, 24),
-						BackgroundColor3 = c,
-						Text = "",
+
+				for Index, Color in ipairs(RecentColors) do
+					local RecentButton = Create("TextButton", RecentHolder, {
+						Size = UDim2.new(0, 22, 0, 22),
+
+						BackgroundColor3 = Color,
+
 						AutoButtonColor = false,
-						LayoutOrder = i
+
+						Text = "",
+
+						LayoutOrder = Index
 					})
-					Make("Corner", btn, UDim.new(0, 4))
-					Make("Stroke", btn)
-					btn.Activated:Connect(function()
-						SetColor(c, true)
+
+					Make("Corner", RecentButton, UDim.new(0, 5))
+					Make("Stroke", RecentButton)
+
+					RecentButton.Activated:Connect(function()
+						SetColor(Color, true)
 					end)
 				end
 			end
-			RefreshRecents()
 
-			-- Sliders HSV
-			local function CreateHSVSlider(name, order, isHue)
-				local holder = Create("Frame", PanelContent, {
-					Size = UDim2.new(1, 0, 0, 34),
+			--//========================================================
+			--// Sliders
+			--//========================================================
+
+			local HueSlider
+			local SaturationSlider
+			local BrightnessSlider
+
+			local function CreateSlider(Name, Order, Type)
+				local Holder = Create("Frame", PanelContent, {
+					Size = UDim2.new(1, 0, 0, 37),
+
 					BackgroundTransparency = 1,
-					LayoutOrder = order
+
+					LayoutOrder = Order
 				})
 
-				InsertTheme(Create("TextLabel", holder, {
-					Size = UDim2.new(1, 0, 0, 13),
+				InsertTheme(Create("TextLabel", Holder, {
+					Size = UDim2.new(1, 0, 0, 12),
+
 					BackgroundTransparency = 1,
-					Font = Enum.Font.GothamBold,
-					TextSize = 11,
+
+					Font = Enum.Font.GothamMedium,
+					TextSize = 10,
+
 					TextColor3 = Theme["Color Text"],
-					TextXAlignment = "Left",
-					Text = name
+
+					TextXAlignment = Enum.TextXAlignment.Left,
+
+					Text = Name
 				}), "Text")
 
-				local bar = InsertTheme(Create("Frame", holder, {
-					Size = UDim2.new(1, 0, 0, 12),
-					Position = UDim2.new(0, 0, 0, 18),
-					BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-				}), "Stroke")
-				Make("Corner", bar, UDim.new(0, 6))
+				local Bar = Create("TextButton", Holder, {
+					Size = UDim2.new(1, 0, 0, 14),
 
-				local fill = Create("Frame", bar, {
-					Size = UDim2.new(1, 0, 1, 0),
-					BackgroundTransparency = 1
+					Position = UDim2.new(0, 0, 0, 19),
+
+					BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+
+					AutoButtonColor = false,
+
+					Text = ""
 				})
-				Make("Corner", fill, UDim.new(0, 6))
 
-				local gradient = Create("UIGradient", fill)
+				Make("Corner", Bar, UDim.new(0.5, 0))
+				Make("Stroke", Bar)
 
-				local knob = Create("Frame", bar, {
-					Size = UDim2.new(0, 10, 0, 16),
-					Position = UDim2.new(0, 0, 0.5),
+				local Gradient = Create("UIGradient", Bar)
+
+				local Knob = Create("Frame", Bar, {
+					Size = UDim2.new(0, 7, 0, 22),
+
+					Position = UDim2.new(0, 0, 0.5, 0),
+
 					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundColor3 = Color3.fromRGB(240, 240, 240),
-					ZIndex = 2
-				})
-				Make("Corner", knob, UDim.new(0.5, 0))
-				Make("Stroke", knob)
 
-				local dragging = false
+					BackgroundColor3 = Color3.fromRGB(235, 235, 235),
+
+					ZIndex = 5
+				})
+
+				Make("Corner", Knob, UDim.new(0.5, 0))
+				Make("Stroke", Knob)
+
+				local Dragging = false
+
+				local function GetValue()
+					if Type == "Hue" then
+						return h
+					elseif Type == "Saturation" then
+						return s
+					else
+						return v
+					end
+				end
+
+				local function SetValue(Value, Fire)
+					Value = math.clamp(Value, 0, 1)
+
+					if Type == "Hue" then
+						h = Value
+					elseif Type == "Saturation" then
+						s = Value
+					else
+						v = Value
+					end
+
+					Knob.Position = UDim2.new(
+						Value,
+						0,
+						0.5,
+						0
+					)
+
+					CurrentColor = Color3.fromHSV(h, s, v)
+
+					if Fire then
+						UpdateAll(true)
+					end
+				end
 
 				local function UpdateGradient()
-					if isHue then
-						gradient.Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0.00, Color3.fromHSV(0, 1, 1)),
-							ColorSequenceKeypoint.new(0.16, Color3.fromHSV(1/6, 1, 1)),
-							ColorSequenceKeypoint.new(0.33, Color3.fromHSV(2/6, 1, 1)),
-							ColorSequenceKeypoint.new(0.50, Color3.fromHSV(3/6, 1, 1)),
-							ColorSequenceKeypoint.new(0.66, Color3.fromHSV(4/6, 1, 1)),
-							ColorSequenceKeypoint.new(0.83, Color3.fromHSV(5/6, 1, 1)),
-							ColorSequenceKeypoint.new(1.00, Color3.fromHSV(1, 1, 1))
+					if Type == "Hue" then
+
+						Gradient.Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(0.00, Color3.fromHSV(0 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(0.16, Color3.fromHSV(1 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(0.33, Color3.fromHSV(2 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(0.50, Color3.fromHSV(3 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(0.66, Color3.fromHSV(4 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(0.83, Color3.fromHSV(5 / 6, 1, 1)),
+							ColorSequenceKeypoint.new(1.00, Color3.fromHSV(6 / 6, 1, 1))
 						})
-					elseif name == "Saturação" then
-						gradient.Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromHSV(h, 0, v)),
-							ColorSequenceKeypoint.new(1, Color3.fromHSV(h, 1, v))
+
+					elseif Type == "Saturation" then
+
+						Gradient.Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(
+								0,
+								Color3.fromHSV(h, 0, v)
+							),
+
+							ColorSequenceKeypoint.new(
+								1,
+								Color3.fromHSV(h, 1, v)
+							)
 						})
+
 					else
-						gradient.Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-							ColorSequenceKeypoint.new(1, Color3.fromHSV(h, s, 1))
+
+						Gradient.Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(
+								0,
+								Color3.fromRGB(0, 0, 0)
+							),
+
+							ColorSequenceKeypoint.new(
+								1,
+								Color3.fromHSV(h, s, 1)
+							)
 						})
 					end
 				end
 
-				local function SetValue(val, fire)
-					val = math.clamp(val, 0, 1)
-					knob.Position = UDim2.new(val, 0, 0.5, 0)
-					if isHue then h = val
-					elseif name == "Saturação" then s = val
-					else v = val end
-					CurrentColor = Color3.fromHSV(h, s, v)
-					if fire then UpdateAll(true) end
+				local function UpdateFromInput(Input)
+					local X = Input.Position.X
+
+					local Start = Bar.AbsolutePosition.X
+					local Width = math.max(Bar.AbsoluteSize.X, 1)
+
+					SetValue(
+						(X - Start) / Width,
+						true
+					)
 				end
 
-				local function FromMouse()
-					local absPos = bar.AbsolutePosition.X
-					local absSize = math.max(bar.AbsoluteSize.X, 1)
-					local mouseX = UserInputService:GetMouseLocation().X
-					SetValue((mouseX - absPos) / absSize, true)
-				end
+				Bar.InputBegan:Connect(function(Input)
+					if Input.UserInputType == Enum.UserInputType.MouseButton1
+						or Input.UserInputType == Enum.UserInputType.Touch then
 
-				bar.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						dragging = true
-						FromMouse()
+						Dragging = true
+
+						UpdateFromInput(Input)
 					end
 				end)
 
-				UserInputService.InputEnded:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						dragging = false
+				UserInputService.InputChanged:Connect(function(Input)
+					if not Dragging then
+						return
+					end
+
+					if Input.UserInputType == Enum.UserInputType.MouseMovement
+						or Input.UserInputType == Enum.UserInputType.Touch then
+
+						UpdateFromInput(Input)
 					end
 				end)
 
-				UserInputService.InputChanged:Connect(function(input)
-					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-						FromMouse()
+				UserInputService.InputEnded:Connect(function(Input)
+					if Input.UserInputType == Enum.UserInputType.MouseButton1
+						or Input.UserInputType == Enum.UserInputType.Touch then
+
+						Dragging = false
 					end
 				end)
 
+				SetValue(GetValue(), false)
 				UpdateGradient()
-				return {Set = SetValue, UpdateGradient = UpdateGradient}
+
+				return {
+					Set = SetValue,
+					UpdateGradient = UpdateGradient
+				}
 			end
 
-			local HueSlider = CreateHSVSlider("Matiz", 5, true)
-			local SatSlider = CreateHSVSlider("Saturação", 6, false)
-			local ValSlider = CreateHSVSlider("Brilho", 7, false)
+			HueSlider = CreateSlider("Matiz", 3, "Hue")
+			SaturationSlider = CreateSlider("Saturação", 4, "Saturation")
+			BrightnessSlider = CreateSlider("Brilho", 5, "Brightness")
 
-			-- Preview grande
+			--//========================================================
+			--// Preview grande
+			--//========================================================
+
 			local PreviewFrame = Create("Frame", PanelContent, {
-				Size = UDim2.new(1, 0, 0, 28),
+				Size = UDim2.new(1, 0, 0, 30),
+
 				BackgroundColor3 = CurrentColor,
-				LayoutOrder = 8
+
+				LayoutOrder = 6
 			})
+
 			Make("Corner", PreviewFrame, UDim.new(0, 6))
 			Make("Stroke", PreviewFrame)
 
-			-- Atualização
-			function UpdateAll(fire)
-				local hex = Color3ToHex(CurrentColor)
-				HexBox.Text = hex
-				PanelHexBox.Text = hex
+			--//========================================================
+			--// Atualizar tudo
+			--//========================================================
+
+			function UpdateAll(Fire)
+				if Destroyed then
+					return
+				end
+
+				local Hex = Color3ToHex(CurrentColor)
+
+				HexBox.Text = Hex
+
 				ColorPreview.BackgroundColor3 = CurrentColor
+				HexBox.TextColor3 = CurrentColor
+
 				PreviewFrame.BackgroundColor3 = CurrentColor
 
 				HueSlider.Set(h, false)
-				SatSlider.Set(s, false)
-				ValSlider.Set(v, false)
-				SatSlider.UpdateGradient()
-				ValSlider.UpdateGradient()
+				SaturationSlider.Set(s, false)
+				BrightnessSlider.Set(v, false)
 
-				SetFlag(Flag, CurrentColor)
-				if fire then
-					Funcs:FireCallback(Callback, CurrentColor)
+				SaturationSlider.UpdateGradient()
+				BrightnessSlider.UpdateGradient()
+
+				if Flag then
+					SetFlag(Flag, CurrentColor)
+				end
+
+				if Fire then
 					AddRecent(CurrentColor)
+
 					RefreshRecents()
+
+					Funcs:FireCallback(
+						Callback,
+						CurrentColor
+					)
 				end
 			end
 
-			function SetColor(c, fire)
-				CurrentColor = c
+			--//========================================================
+			--// SetColor
+			--//========================================================
+
+			SetColor = function(Color, Fire)
+				Color = ParseColor(Color)
+
+				if not Color then
+					return
+				end
+
+				CurrentColor = Color
+
 				h, s, v = CurrentColor:ToHSV()
-				UpdateAll(fire ~= false)
+
+				UpdateAll(Fire ~= false)
 			end
 
-			-- Proteção do HEX (não apaga # e não permite espaços)
-			local function ProtectHex(box)
-				box:GetPropertyChangedSignal("Text"):Connect(function()
-					local text = box.Text:upper():gsub("%s+", "")
-					if not text:find("^#") then
-						text = "#" .. text:gsub("#", "")
+			--//========================================================
+			--// HEX
+			--//========================================================
+
+			local function ProtectHex(Box)
+				Box:GetPropertyChangedSignal("Text"):Connect(function()
+					if Box:IsFocused() == false then
+						return
 					end
-					text = text:sub(1, 7)
-					if box.Text ~= text then
-						box.Text = text
+
+					local Text = Box.Text:upper()
+
+					Text = Text:gsub("%s+", "")
+					Text = Text:gsub("#", "")
+
+					if #Text > 6 then
+						Text = Text:sub(1, 6)
 					end
+
+					if not Text:match("^[0-9A-F]*$") then
+						Text = Text:gsub("[^0-9A-F]", "")
+					end
+
+					Box.Text = "#" .. Text
 				end)
 			end
+
 			ProtectHex(HexBox)
-			ProtectHex(PanelHexBox)
 
-			local function ApplyHex(box)
-				local c = HexToColor3(box.Text)
-				if c then
-					SetColor(c, true)
+			local function ApplyHex(Box)
+				local Color = HexToColor3(Box.Text)
+
+				if Color then
+					SetColor(Color, true)
 				else
-					box.Text = Color3ToHex(CurrentColor)
+					Box.Text = Color3ToHex(CurrentColor)
 				end
 			end
 
-			HexBox.FocusLost:Connect(function() ApplyHex(HexBox) end)
-			PanelHexBox.FocusLost:Connect(function() ApplyHex(PanelHexBox) end)
+			HexBox.FocusLost:Connect(function()
+				ApplyHex(HexBox)
+			end)
 
-			-- Abrir / Fechar (igual Dropdown)
-			local function Disable()
-				if WaitClick then return end
-				WaitClick = true
-				CreateTween({Arrow, "Rotation", 0, 0.2})
-				CreateTween({Arrow, "ImageColor3", Color3.fromRGB(255, 255, 255), 0.2})
-				CreateTween({ColorPanel, "Size", UDim2.new(0, 220, 0, 0), 0.2, true})
-				NoClickFrame.Visible = false
+			--//========================================================
+			--// Abrir / fechar
+			--//========================================================
+
+			local function ClosePicker()
+				if Busy or not Open then
+					return
+				end
+
+				Busy = true
 				Open = false
-				WaitClick = false
+
+				CreateTween({
+					Arrow,
+					"Rotation",
+					0,
+					0.18
+				})
+
+				CreateTween({
+					Arrow,
+					"ImageColor3",
+					Theme["Color Text"],
+					0.18
+				})
+
+				CreateTween({
+					ColorPanel,
+					"Size",
+					UDim2.new(0, 240, 0, 0),
+					0.2,
+					true
+				})
+
+				task.delay(0.2, function()
+					if not Destroyed and not Open then
+						ColorPanel.Visible = false
+					end
+
+					Busy = false
+				end)
 			end
 
-			local function Minimize()
-				if WaitClick then return end
-				WaitClick = true
-
-				if Open then
-					Disable()
-				else
-					NoClickFrame.Visible = true
-					Open = true
-					CreateTween({Arrow, "Rotation", 180, 0.2})
-					CreateTween({Arrow, "ImageColor3", Theme["Color Theme"], 0.2})
-
-					print("Test")
-
-					local absPos = ColorPreview.AbsolutePosition
-					local absSize = ColorPreview.AbsoluteSize
-					local screenSize = ScreenGui.AbsoluteSize
-					local panelH = 270
-
-					local openUp = (absPos.Y / UIScale + absSize.Y + panelH) > (screenSize.Y / UIScale)
-
-					ColorPanel.Size = UDim2.new(0, 220, 0, 0)
-					local clampX = math.clamp(absPos.X / UIScale - 180, 0, screenSize.X / UIScale - 220)
-					local clampY = openUp and (absPos.Y / UIScale - panelH - 6) or (absPos.Y / UIScale + absSize.Y + 6)
-
-					ColorPanel.Position = UDim2.fromOffset(clampX, clampY)
-					ColorPanel.AnchorPoint = Vector2.new(0, openUp and 1 or 0)
-
-					CreateTween({ColorPanel, "Size", UDim2.new(0, 220, 0, panelH), 0.25})
+			local function OpenPicker()
+				if Busy or Open then
+					return
 				end
-				WaitClick = false
+
+				Busy = true
+				Open = true
+
+				ColorPanel.Visible = true
+
+				CreateTween({
+					Arrow,
+					"Rotation",
+					180,
+					0.18
+				})
+
+				CreateTween({
+					Arrow,
+					"ImageColor3",
+					Theme["Color Theme"],
+					0.18
+				})
+
+				local ScreenSize = ScreenGui.AbsoluteSize
+
+				local PreviewPosition = ColorPreview.AbsolutePosition
+				local PreviewSize = ColorPreview.AbsoluteSize
+
+				local PanelWidth = 240
+				local PanelHeight = 250
+
+				local ScreenScale = UIScale or 1
+
+				local X = PreviewPosition.X / ScreenScale
+				local Y = PreviewPosition.Y / ScreenScale
+
+				local Width = ScreenSize.X / ScreenScale
+				local Height = ScreenSize.Y / ScreenScale
+
+				X = math.clamp(
+					X - PanelWidth + PreviewSize.X,
+					5,
+					math.max(5, Width - PanelWidth - 5)
+				)
+
+				local OpenUp =
+					Y + PreviewSize.Y + PanelHeight >
+					Height
+
+				if OpenUp then
+					ColorPanel.Position = UDim2.fromOffset(
+						X,
+						Y - 6
+					)
+
+					ColorPanel.AnchorPoint = Vector2.new(
+						0,
+						1
+					)
+				else
+					ColorPanel.Position = UDim2.fromOffset(
+						X,
+						Y + PreviewSize.Y + 6
+					)
+
+					ColorPanel.AnchorPoint = Vector2.new(
+						0,
+						0
+					)
+				end
+
+				ColorPanel.Size = UDim2.new(
+					0,
+					PanelWidth,
+					0,
+					0
+				)
+
+				CreateTween({
+					ColorPanel,
+					"Size",
+					UDim2.new(
+						0,
+						PanelWidth,
+						0,
+						PanelHeight
+					),
+					0.22
+				})
+
+				task.delay(0.22, function()
+					Busy = false
+				end)
 			end
 
-			-- Só abre pelo preview ou pela seta
-			ColorPreview.Activated:Connect(Minimize)
-			Arrow.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-					Minimize()
+			local function TogglePicker()
+				if Open then
+					ClosePicker()
+				else
+					OpenPicker()
+				end
+			end
+
+			--//========================================================
+			--// Clicks
+			--//========================================================
+
+			ColorPreview.Activated:Connect(TogglePicker)
+
+			Arrow.InputBegan:Connect(function(Input)
+				if Input.UserInputType == Enum.UserInputType.MouseButton1
+					or Input.UserInputType == Enum.UserInputType.Touch then
+
+					TogglePicker()
 				end
 			end)
 
-			NoClickFrame.MouseButton1Down:Connect(Disable)
-			NoClickFrame.MouseButton1Click:Connect(Disable)
-			MainFrame:GetPropertyChangedSignal("Visible"):Connect(Disable)
+			--//========================================================
+			--// Inicialização
+			--//========================================================
 
-			-- Inicializa
+			RefreshRecents()
 			UpdateAll(false)
-			Funcs:FireCallback(Callback, CurrentColor)
 
-			-- Objeto de retorno
+			Funcs:FireCallback(
+				Callback,
+				CurrentColor
+			)
+
+			--//========================================================
+			--// Retorno
+			--//========================================================
+
 			local ColorPicker = {}
-			function ColorPicker:Set(val)
-				if typeof(val) == "Color3" or type(val) == "string" or type(val) == "table" then
-					SetColor(ParseDefault(val), true)
-				elseif type(val) == "function" then
-					Callback = {val}
+
+			function ColorPicker:Set(Value)
+				if typeof(Value) == "Color3"
+					or type(Value) == "string"
+					or type(Value) == "table" then
+
+					SetColor(Value, true)
+
+				elseif type(Value) == "function" then
+					Callback = {Value}
 				end
 			end
+
 			function ColorPicker:Get()
 				return CurrentColor
 			end
+
 			function ColorPicker:Callback(...)
 				Funcs:InsertCallback(Callback, ...)()
 			end
+
 			function ColorPicker:Visible(...)
 				Funcs:ToggleVisible(Button, ...)
 			end
+
 			function ColorPicker:Destroy()
+				if Destroyed then
+					return
+				end
+
+				Destroyed = true
+
 				Button:Destroy()
-				NoClickFrame:Destroy()
+
+				if ColorPanel then
+					ColorPanel:Destroy()
+				end
 			end
+
 			return ColorPicker
 		end
 		function Tab:AddDiscordInvite(Configs)
