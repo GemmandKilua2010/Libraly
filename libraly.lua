@@ -2611,15 +2611,14 @@ function redzlib:MakeWindow(Configs)
 			return TextBox
 		end
 		function Tab:AddColorPicker(Configs)
+
 			local ColorPicker = {}
 
 			local Name = Configs[1] or Configs.Name or Configs.Title or "Cor personalizada"
 			local Description = Configs.Desc or Configs.Description or ""
-
 			local Callback = Funcs:GetCallback(Configs, 3)
 			local Flag = Configs[4] or Configs.Flag or false
 			local MaxRecent = Configs.MaxRecent or 8
-
 			local DisplayMode = Configs.DisplayMode or Configs.Display or "Hex"
 			local DisplayString = tostring(DisplayMode):lower():gsub("%s+", "")
 
@@ -2816,6 +2815,7 @@ function redzlib:MakeWindow(Configs)
 					if Success and BrickColorValue then
 						return BrickColorValue, Hex
 					end
+
 				elseif OutputFormat == "BrickColorName" then
 					local Success, BrickColorValue = pcall(BrickColor.new, Color)
 
@@ -3142,10 +3142,17 @@ function redzlib:MakeWindow(Configs)
 			}, {
 				Create("UIGradient", {
 					Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-						ColorSequenceKeypoint.new(1, Color3.fromHSV(
-							CurrentColor:ToHSV()
-						))
+						ColorSequenceKeypoint.new(
+							0,
+							Color3.fromRGB(0, 0, 0)
+						),
+
+						ColorSequenceKeypoint.new(
+							1,
+							Color3.fromHSV(
+								CurrentColor:ToHSV()
+							)
+						)
 					})
 				})
 			})
@@ -3176,7 +3183,6 @@ function redzlib:MakeWindow(Configs)
 			--------------------------------------------------
 
 			local Expanded = false
-			local RecentColors = RecentColors
 			local CurrentColorValue = CurrentColor
 
 			--------------------------------------------------
@@ -3209,8 +3215,15 @@ function redzlib:MakeWindow(Configs)
 				for _, Color in ipairs(RecentColors) do
 					local RecentColor = Color
 
-					CreateRecentButton(RecentHolder, RecentColor).Activated:Connect(function()
-						SetColor(RecentColor, true, true)
+					CreateRecentButton(
+						RecentHolder,
+						RecentColor
+					).Activated:Connect(function()
+						SetColor(
+							RecentColor,
+							true,
+							true
+						)
 					end)
 				end
 			end
@@ -3224,7 +3237,11 @@ function redzlib:MakeWindow(Configs)
 					end
 				end
 
-				table.insert(RecentColors, 1, Color)
+				table.insert(
+					RecentColors,
+					1,
+					Color
+				)
 
 				while #RecentColors > MaxRecent do
 					table.remove(RecentColors)
@@ -3308,13 +3325,6 @@ function redzlib:MakeWindow(Configs)
 			-- Expand
 			--------------------------------------------------
 
-			local PickerLayout = PickerContent:FindFirstChildOfClass("UIListLayout")
-			local PickerPadding = PickerContent:FindFirstChildOfClass("UIPadding")
-
-			local function GetPickerHeight()
-				return PickerContent.AbsoluteSize.Y + 6
-			end
-
 			local function SetExpanded(Value)
 				if Value == nil then
 					Expanded = not Expanded
@@ -3329,53 +3339,21 @@ function redzlib:MakeWindow(Configs)
 					0.25
 				})
 
-				if Expanded then
-					task.defer(function()
-						local Height = GetPickerHeight()
-
-						CreateTween({
-							PickerFrame,
-							"Size",
-							UDim2.new(1, 0, 0, Height),
-							0.25
-						})
-					end)
-				else
-					CreateTween({
-						PickerFrame,
-						"Size",
-						UDim2.new(1, 0, 0, 0),
-						0.25
-					})
-				end
+				CreateTween({
+					PickerFrame,
+					"Size",
+					UDim2.new(
+						1,
+						0,
+						0,
+						Expanded and 175 or 0
+					),
+					0.25
+				})
 			end
 
 			PreviewButton.Activated:Connect(function()
 				SetExpanded()
-			end)
-
-			if PickerLayout then
-				PickerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-					if Expanded then
-						PickerFrame.Size = UDim2.new(
-							1,
-							0,
-							0,
-							GetPickerHeight()
-						)
-					end
-				end)
-			end
-
-			PickerContent:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-				if Expanded then
-					PickerFrame.Size = UDim2.new(
-						1,
-						0,
-						0,
-						GetPickerHeight()
-					)
-				end
 			end)
 
 			--------------------------------------------------
@@ -3601,7 +3579,9 @@ function redzlib:MakeWindow(Configs)
 			--------------------------------------------------
 
 			function ColorPicker:Set(Value, DescriptionValue)
-				if type(Value) == "string" and type(DescriptionValue) == "string" then
+				if type(Value) == "string"
+					and type(DescriptionValue) == "string" then
+
 					Label:SetTitle(Value)
 					Label:SetDesc(DescriptionValue)
 
