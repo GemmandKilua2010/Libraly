@@ -2622,6 +2622,9 @@ function redzlib:MakeWindow(Configs)
 			local Flag = Configs[4] or Configs.Flag or false
 			local MaxRecent = Configs.MaxRecent or 8
 			local DisplayMode = Configs.DisplayMode or Configs.Display or "Hex"
+			local SliderLocker = Configs.SliderLocker == true
+			local PaddingBottom = tonumber(Configs.PaddingBottom) or 0
+
 			local DisplayString = tostring(DisplayMode):lower():gsub("%s+", "")
 			local ShowHex = DisplayString:find("hex", 1, true) ~= nil
 			local ShowRGB = DisplayString:find("rgb", 1, true) ~= nil
@@ -2976,7 +2979,7 @@ function redzlib:MakeWindow(Configs)
 					PaddingLeft = UDim.new(0, 12),
 					PaddingRight = UDim.new(0, 12),
 					PaddingTop = UDim.new(0, 12),
-					PaddingBottom = UDim.new(0, 12)
+					PaddingBottom = UDim.new(0, 12 + PaddingBottom)
 				})
 			})
 
@@ -3332,17 +3335,17 @@ function redzlib:MakeWindow(Configs)
 
 			local function UpdateHue(Input)
 				Hue = GetSliderValue(Input, HueBackground)
-				ApplyHSV(false, false)
+				ApplyHSV(SliderLocker, false)
 			end
 
 			local function UpdateSaturation(Input)
 				Saturation = GetSliderValue(Input, SaturationBackground)
-				ApplyHSV(false, false)
+				ApplyHSV(SliderLocker, false)
 			end
 
 			local function UpdateBrightness(Input)
 				Brightness = GetSliderValue(Input, BrightnessBackground)
-				ApplyHSV(false, false)
+				ApplyHSV(SliderLocker, false)
 			end
 
 			local function StartDrag(Indicator, CallbackFunction, Input)
@@ -3432,7 +3435,11 @@ function redzlib:MakeWindow(Configs)
 						0.15
 					})
 
-					ApplyHSV(true, true)
+					if not SliderLocker then
+						ApplyHSV(true, true)
+					else
+						AddRecent(CurrentColorValue)
+					end
 				end
 			end)
 
