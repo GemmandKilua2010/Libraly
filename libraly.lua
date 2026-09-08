@@ -2622,8 +2622,7 @@ function redzlib:MakeWindow(Configs)
 			local Flag = Configs[4] or Configs.Flag or false
 			local MaxRecent = Configs.MaxRecent or 8
 			local DisplayMode = Configs.DisplayMode or Configs.Display or "Hex"
-			local SliderLocker = Configs.SliderLocker == true
-			local PaddingBottom = tonumber(Configs.PaddingBottom) or 0
+			local SliderLocker = Configs.SliderLocker or false
 
 			local DisplayString = tostring(DisplayMode):lower():gsub("%s+", "")
 			local ShowHex = DisplayString:find("hex", 1, true) ~= nil
@@ -2641,7 +2640,9 @@ function redzlib:MakeWindow(Configs)
 				local Hex = Value:gsub("^#", ""):gsub("%s+", ""):upper()
 
 				if #Hex == 3 then
-					Hex = Hex:sub(1,1):rep(2) .. Hex:sub(2,2):rep(2) .. Hex:sub(3,3):rep(2)
+					Hex = Hex:sub(1, 1):rep(2)
+						.. Hex:sub(2, 2):rep(2)
+						.. Hex:sub(3, 3):rep(2)
 				end
 
 				if #Hex ~= 6 or not Hex:match("^[%x]+$") then
@@ -2979,7 +2980,7 @@ function redzlib:MakeWindow(Configs)
 					PaddingLeft = UDim.new(0, 12),
 					PaddingRight = UDim.new(0, 12),
 					PaddingTop = UDim.new(0, 12),
-					PaddingBottom = UDim.new(0, 12 + PaddingBottom)
+					PaddingBottom = UDim.new(0, 12)
 				})
 			})
 
@@ -3199,9 +3200,26 @@ function redzlib:MakeWindow(Configs)
 			local SliderPadding = 5
 
 			local function UpdateIndicators()
-				HueIndicator.Position = UDim2.new(Hue, 0, 0.5, 0)
-				SaturationIndicator.Position = UDim2.new(Saturation, 0, 0.5, 0)
-				BrightnessIndicator.Position = UDim2.new(Brightness, 0, 0.5, 0)
+				HueIndicator.Position = UDim2.new(
+					math.clamp(Hue, 0, 1),
+					0,
+					0.5,
+					0
+				)
+
+				SaturationIndicator.Position = UDim2.new(
+					math.clamp(Saturation, 0, 1),
+					0,
+					0.5,
+					0
+				)
+
+				BrightnessIndicator.Position = UDim2.new(
+					math.clamp(Brightness, 0, 1),
+					0,
+					0.5,
+					0
+				)
 			end
 
 			local function UpdateGradients()
@@ -3216,6 +3234,20 @@ function redzlib:MakeWindow(Configs)
 					ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(Hue, Saturation, 1))
 				})
+			end
+
+			local function FireColorCallback(Color)
+				if not Callback then
+					return
+				end
+
+				local Value, Hex = GetOutput(Color)
+
+				Funcs:FireCallback(
+					Callback,
+					Value,
+					Hex
+				)
 			end
 
 			SetColor = function(Color, FireCallback, AddToRecent)
@@ -3248,19 +3280,17 @@ function redzlib:MakeWindow(Configs)
 					AddRecent(Color)
 				end
 
-				if FireCallback and Callback then
-					local Value, Hex = GetOutput(Color)
-
-					Funcs:FireCallback(
-						Callback,
-						Value,
-						Hex
-					)
+				if FireCallback then
+					FireColorCallback(Color)
 				end
 			end
 
-			local function ApplyHSV(FireCallback, AddToRecent)
-				local Color = Color3.fromHSV(Hue, Saturation, Brightness)
+			local function ApplyHSV()
+				local Color = Color3.fromHSV(
+					Hue,
+					Saturation,
+					Brightness
+				)
 
 				CurrentColorValue = Color
 				ColorPreview.BackgroundColor3 = Color
@@ -3280,18 +3310,8 @@ function redzlib:MakeWindow(Configs)
 					SetFlag(Flag, ColorToHex(Color))
 				end
 
-				if AddToRecent then
-					AddRecent(Color)
-				end
-
-				if FireCallback and Callback then
-					local Value, Hex = GetOutput(Color)
-
-					Funcs:FireCallback(
-						Callback,
-						Value,
-						Hex
-					)
+				if SliderLocker then
+					FireColorCallback(Color)
 				end
 			end
 
@@ -3335,17 +3355,17 @@ function redzlib:MakeWindow(Configs)
 
 			local function UpdateHue(Input)
 				Hue = GetSliderValue(Input, HueBackground)
-				ApplyHSV(SliderLocker, false)
+				ApplyHSV()
 			end
 
 			local function UpdateSaturation(Input)
 				Saturation = GetSliderValue(Input, SaturationBackground)
-				ApplyHSV(SliderLocker, false)
+				ApplyHSV()
 			end
 
 			local function UpdateBrightness(Input)
 				Brightness = GetSliderValue(Input, BrightnessBackground)
-				ApplyHSV(SliderLocker, false)
+				ApplyHSV()
 			end
 
 			local function StartDrag(Indicator, CallbackFunction, Input)
@@ -3407,7 +3427,10 @@ function redzlib:MakeWindow(Configs)
 					return
 				end
 
-				local Changed = HueDragging or SaturationDragging or BrightnessDragging
+				local Changed =
+					HueDragging
+					or SaturationDragging
+					or BrightnessDragging
 
 				HueDragging = false
 				SaturationDragging = false
@@ -3436,10 +3459,10 @@ function redzlib:MakeWindow(Configs)
 					})
 
 					if not SliderLocker then
-						ApplyHSV(true, true)
-					else
-						AddRecent(CurrentColorValue)
+						FireColorCallback(CurrentColorValue)
 					end
+
+					AddRecent(CurrentColorValue)
 				end
 			end)
 
@@ -3458,18 +3481,25 @@ function redzlib:MakeWindow(Configs)
 					end
 
 					if HexInput.CursorPosition <= 1 then
-						HexInput.CursorPosition = math.max(#HexInput.Text + 1, 2)
+						HexInput.CursorPosition = math.max(
+							#HexInput.Text + 1,
+							2
+						)
 					end
 				end)
 
 				HexInput.Focused:Connect(function()
 					if HexInput.Text:sub(1, 1) ~= "#" then
-						HexInput.Text = "#" .. HexInput.Text:gsub("[^%x]", ""):sub(1, 6)
+						HexInput.Text = "#"
+							.. HexInput.Text:gsub("[^%x]", ""):sub(1, 6)
 					end
 
 					task.defer(function()
 						if HexInput:IsFocused() then
-							HexInput.CursorPosition = math.max(#HexInput.Text + 1, 2)
+							HexInput.CursorPosition = math.max(
+								#HexInput.Text + 1,
+								2
+							)
 						end
 					end)
 				end)
