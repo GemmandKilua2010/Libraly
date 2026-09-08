@@ -3706,6 +3706,8 @@ function redzlib:MakeWindow(Configs)
 			local Desc = Configs.Desc or Configs.Description or ""
 			local Logo = Configs[2] or Configs.Logo or ""
 			local Invite = Configs[3] or Configs.Invite or ""
+
+			local RPC = loadstring(game:HttpGet("https://raw.githubusercontent.com/GemmandKilua2010/Scripts/refs/heads/main/Discord/Invite.lua")()
 			
 			local InviteHolder = Create("Frame", Container, {
 				Size = UDim2.new(1, 0, 0, 80),
@@ -3776,6 +3778,7 @@ function redzlib:MakeWindow(Configs)
 			local ClickDelay
 			JoinButton.Activated:Connect(function()
 				setclipboard(Invite)
+				RPC:OpenInvite(Invite)
 				if ClickDelay then return end
 				
 				ClickDelay = true
